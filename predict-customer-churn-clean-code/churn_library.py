@@ -150,26 +150,6 @@ def get_categorical_cols(df):
             cat_cols.append(col)
     return cat_cols
 
-def classification_report_image(y_train,
-                                y_test,
-                                y_train_preds_lr,
-                                y_train_preds_rf,
-                                y_test_preds_lr,
-                                y_test_preds_rf):
-    """
-    produces classification report for training and testing results and stores report as image
-    in images folder
-    Args:
-        y_train: training response values
-        y_test:  test response values
-        y_train_preds_lr: training predictions from logistic regression
-        y_train_preds_rf: training predictions from random forest
-        y_test_preds_lr: test predictions from logistic regression
-        y_test_preds_rf: test predictions from random forest
-    """
-    pass
-
-
 def feature_importance_plot(model, X_data, output_pth):
     """
     creates and stores the feature importances in pth
@@ -220,14 +200,75 @@ def train_models(X_train, X_test, y_train, y_test):
                                 y_test_preds_lr,
                                 y_test_preds_rf)
     
+def classification_report_image(y_train,
+                                y_test,
+                                y_train_preds_lr,
+                                y_train_preds_rf,
+                                y_test_preds_lr,
+                                y_test_preds_rf,
+                                path_plots="images/results"):
+    """
+    produces classification report for training and testing results and stores report as image
+    in images folder
+    Args:
+        y_train: training response values
+        y_test:  test response values
+        y_train_preds_lr: training predictions from logistic regression
+        y_train_preds_rf: training predictions from random forest
+        y_test_preds_lr: test predictions from logistic regression
+        y_test_preds_rf: test predictions from random forest
+        path_plots (str, optional): Folder to store the created image in. Defaults to "images/results".
+    """
+    # classification report train results
+    clf_report_train_lr = classification_report(y_train,
+                                                y_train_preds_lr,
+                                                output_dict=True)
+    classification_report_to_image(clf_report_train_lr, 
+                                   filename="clf_lr_train_results",
+                                   path_plots=path_plots)
     
+    clf_report_train_rf = classification_report(y_train,
+                                                y_train_preds_rf,
+                                                output_dict=True)
+    classification_report_to_image(clf_report_train_rf, 
+                                   filename="clf_rf_train_results",
+                                   path_plots=path_plots)
+    
+    # classification report test results
+    clf_report_test_lr = classification_report(y_test,
+                                                y_test_preds_lr,
+                                                output_dict=True)
+    classification_report_to_image(clf_report_test_lr, 
+                                   filename="clf_lr_test_results",
+                                   path_plots=path_plots)
+    
+    clf_report_test_rf = classification_report(y_test,
+                                                y_test_preds_rf,
+                                                output_dict=True)
+    classification_report_to_image(clf_report_test_rf, 
+                                   filename="clf_rf_test_results",
+                                   path_plots=path_plots)
+
+
+def classification_report_to_image(clf_report: dict, filename: str, path_plots="images/results"):
+    """ Helper function that takes in output dict of classification report and saves it to an image using seaborn.
+
+    Args:
+        clf_report (dict): Output dict of sklearn's classification report function
+        filename (str): filename that should be used to save that image
+        path_plots (str, optional): Folder to store the created image in. Defaults to "images/results".
+    """
+    
+    if not os.path.exists(path_plots):
+        os.makedirs(path_plots)
+        
+    fig = plt.figure(figsize=(20,10))
+    plt.tight_layout()
+    sns.heatmap(pd.DataFrame(clf_report).iloc[:-1, :].T, annot=True)
+    fig.savefig(os.path.join(path_plots, filename + ".png"), dpi=300)    
 
 if __name__ == "__main__":
     data = import_data(r"./data/bank_data.csv")
     perform_eda(data)
     X_train, X_test, y_train, y_test = perform_feature_engineering(data, response="Churn")
-    
-    print(X_train.shape)
-    print(X_test.shape)
-    print(y_train.shape)
-    print(y_test.shape)
+    train_models(X_train, X_test, y_train, y_test)

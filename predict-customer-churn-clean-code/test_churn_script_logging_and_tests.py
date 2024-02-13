@@ -19,6 +19,20 @@ def path():
     return r"./data/bank_data.csv"
 
 @pytest.fixture
+def path_test_images_eda():
+    """
+    Return path to folder for storing eda test images.
+    """
+    return r"./test_images/eda"
+
+@pytest.fixture
+def path_test_images_results():
+    """
+    Return path to folder for storing result test images.
+    """
+    return r"./test_images/results"
+
+@pytest.fixture
 def df_test_churn():
     return pd.DataFrame({"Attrition_Flag": ["Existing Customer", "Existing Customer", "Attrited Customer"]})
 
@@ -47,16 +61,15 @@ def test_add_churn_col():
     
     assert extended_df["Churn"].tolist() == [0, 0, 1]
         
-def test_perform_eda(sample_df):
-    test_path_plots = "test_images/eda"
-    perform_eda(sample_df, test_path_plots)
+def test_perform_eda(sample_df, path_test_images_eda):
+    perform_eda(sample_df, path_test_images_eda)
 
-    assert os.path.exists(os.path.join(test_path_plots, "hist_col1.png"))
-    assert os.path.exists(os.path.join(test_path_plots, "hist_col2.png"))
-    assert os.path.exists(os.path.join(test_path_plots, "bar_col3.png"))
-    assert os.path.exists(os.path.join(test_path_plots, "feature_heatmap.png"))
+    assert os.path.exists(os.path.join(path_test_images_eda, "hist_col1.png"))
+    assert os.path.exists(os.path.join(path_test_images_eda, "hist_col2.png"))
+    assert os.path.exists(os.path.join(path_test_images_eda, "bar_col3.png"))
+    assert os.path.exists(os.path.join(path_test_images_eda, "feature_heatmap.png"))
 
-    shutil.rmtree(test_path_plots)
+    shutil.rmtree(path_test_images_eda)
     
 def test_get_categorical_cols():
     df = pd.DataFrame({"col1": ["A", "B", "C"], 
@@ -93,3 +106,46 @@ def test_perform_feature_engineering():
     assert len(X_test) == 1
     assert len(y_train) == 2
     assert len(y_test) == 1
+    
+# Test classification_report_image function
+def test_classification_report_image(path_test_images_results):
+    # Create sample data
+    y_train = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0])
+    y_test = np.array([1, 0, 0, 1, 1, 0, 0, 1, 1, 0])
+    y_train_preds_lr = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0])
+    y_train_preds_rf = np.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0])
+    y_test_preds_lr = np.array([1, 0, 0, 1, 1, 0, 0, 1, 1, 0])
+    y_test_preds_rf = np.array([1, 0, 0, 1, 1, 0, 0, 1, 1, 0])
+    
+    # Test the function output
+    classification_report_image(y_train,
+                                 y_test,
+                                 y_train_preds_lr,
+                                 y_train_preds_rf,
+                                 y_test_preds_lr,
+                                 y_test_preds_rf,
+                                 path_plots=path_test_images_results)
+    
+    # Check if the images have been created in the expected directory
+    assert os.path.exists(os.path.join(path_test_images_results, "clf_lr_train_results.png"))
+    assert os.path.exists(os.path.join(path_test_images_results, "clf_rf_train_results.png"))
+    assert os.path.exists(os.path.join(path_test_images_results, "clf_lr_test_results.png"))
+    assert os.path.exists(os.path.join(path_test_images_results, "clf_rf_test_results.png"))
+    
+    shutil.rmtree(path_test_images_results)
+
+# Test classification_report_to_image function
+def test_classification_report_to_image(path_test_images_results):
+    # Create sample data
+    clf_report = {
+        'precision': {'0': 0.6, '1': 0.75, 'macro avg': 0.675, 'weighted avg': 0.675},
+        'recall': {'0': 0.5, '1': 0.9, 'macro avg': 0.7, 'weighted avg': 0.7},
+        'f1-score': {'0': 0.5454545454545454, '1': 0.8181818181818181, 'macro avg': 0.6818181818181818, 'weighted avg': 0.6818181818181818},
+        'support': {'0': 4, '1': 5, 'macro avg': 9, 'weighted avg': 9}
+    }
+    
+    # Test the function output
+    classification_report_to_image(clf_report, "test_report", path_plots=path_test_images_results)
+    
+    # Check if the image has been created in the expected directory
+    assert os.path.exists(os.path.join(path_test_images_results,"test_report.png"))    
