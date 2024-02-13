@@ -2,7 +2,11 @@ import logging
 import pytest
 import numpy as np
 import pandas as pd
-from unittest.mock import patch
+from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from unittest.mock import patch, Mock
 from churn_library import *
 
 logging.basicConfig(
@@ -148,4 +152,21 @@ def test_classification_report_to_image(path_test_images_results):
     classification_report_to_image(clf_report, "test_report", path_plots=path_test_images_results)
     
     # Check if the image has been created in the expected directory
-    assert os.path.exists(os.path.join(path_test_images_results,"test_report.png"))    
+    assert os.path.exists(os.path.join(path_test_images_results,"test_report.png"))
+
+def test_roc_curve_image_old(path_test_images_results):
+    filename="test_roc_curve"
+    # Create sample data
+    X, y = make_classification(n_samples=1000, n_classes=2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Train classifiers
+    estimator_baseline = LogisticRegression(random_state=42)
+    estimator = RandomForestClassifier(random_state=42)
+    estimator_baseline.fit(X_train, y_train)
+    estimator.fit(X_train, y_train)
+    
+    roc_curve_image(estimator, estimator_baseline, X_test, y_test, filename, path_test_images_results)
+    
+    # Check if the image has been created in the expected directory
+    assert os.path.exists(os.path.join(path_test_images_results, filename + ".png"))

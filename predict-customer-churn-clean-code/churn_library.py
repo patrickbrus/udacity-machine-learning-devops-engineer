@@ -11,11 +11,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import normalize
 from sklearn.model_selection import train_test_split
-
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
-
 from sklearn.metrics import plot_roc_curve, classification_report
 
 os.environ["QT_QPA_PLATFORM"]="offscreen"
@@ -90,29 +88,6 @@ def perform_eda(df: pd.core.frame.DataFrame, path_plots="images/eda"):
     sns.heatmap(df.corr(), annot=False, cmap="Dark2_r", linewidths = 2)
     fig.savefig(os.path.join(path_plots, "feature_heatmap.png"), dpi=300)
     
-
-
-def encoder_helper(df: pd.core.frame.DataFrame, category_lst: list[str], response: str) -> pd.core.frame.DataFrame:
-    """
-    helper function to turn each categorical column into a new column with
-    propotion of churn for each category - associated with cell 15 from the notebook
-
-    Args:
-        df (pd.core.frame.DataFrame): pandas dataframe
-        category_lst: list of columns that contain categorical features
-        response: string of response name [optional argument that could be used for naming variables or index y column]
-
-    Returns:
-        df (pd.core.frame.DataFrame): pandas dataframe with new columns for
-    """
-    for category in category_lst:
-        logging.info(f"Add proportion of churn for category {category}...")
-        category_mean = df.groupby(category)["Churn"].transform("mean")
-        df[category + "_Churn"] = category_mean
-    
-    return df.drop(category_lst, axis=1)
-
-
 def perform_feature_engineering(df: pd.core.frame.DataFrame, response):
     """
     apply feature engineering on dataset before training in order to prepare training dataset
@@ -150,15 +125,25 @@ def get_categorical_cols(df):
             cat_cols.append(col)
     return cat_cols
 
-def feature_importance_plot(model, X_data, output_pth):
+def encoder_helper(df: pd.core.frame.DataFrame, category_lst: list[str], response: str) -> pd.core.frame.DataFrame:
     """
-    creates and stores the feature importances in pth
+    helper function to turn each categorical column into a new column with
+    propotion of churn for each category - associated with cell 15 from the notebook
+
     Args:
-        model: model object containing feature_importances_
-        X_data: pandas dataframe of X values
-        output_pth: path to store the figure
+        df (pd.core.frame.DataFrame): pandas dataframe
+        category_lst: list of columns that contain categorical features
+        response: string of response name [optional argument that could be used for naming variables or index y column]
+
+    Returns:
+        df (pd.core.frame.DataFrame): pandas dataframe with new columns for
     """
-    pass
+    for category in category_lst:
+        logging.info(f"Add proportion of churn for category {category}...")
+        category_mean = df.groupby(category)["Churn"].transform("mean")
+        df[category + "_Churn"] = category_mean
+    
+    return df.drop(category_lst, axis=1)
 
 def train_models(X_train, X_test, y_train, y_test):
     """
@@ -176,7 +161,7 @@ def train_models(X_train, X_test, y_train, y_test):
     param_grid = { 
         "n_estimators": [200, 500],
         "max_features": ["auto", "sqrt"],
-        "max_depth" : [4,5,100],
+        "max_depth" : [4, 5, 100],
         "criterion" :["gini", "entropy"]
     }
 
@@ -199,6 +184,12 @@ def train_models(X_train, X_test, y_train, y_test):
                                 y_train_preds_rf,
                                 y_test_preds_lr,
                                 y_test_preds_rf)
+    
+    roc_curve_image(cv_rfc.best_estimator_, 
+                    lrc, 
+                    X_test, 
+                    y_test, 
+                    "roc_curve_test")
     
 def classification_report_image(y_train,
                                 y_test,
@@ -265,7 +256,52 @@ def classification_report_to_image(clf_report: dict, filename: str, path_plots="
     fig = plt.figure(figsize=(20,10))
     plt.tight_layout()
     sns.heatmap(pd.DataFrame(clf_report).iloc[:-1, :].T, annot=True)
-    fig.savefig(os.path.join(path_plots, filename + ".png"), dpi=300)    
+    fig.savefig(os.path.join(path_plots, filename + ".png"), dpi=300)
+
+def feature_importance_plot(model, X_data, output_pth):
+    """
+    creates and stores the feature importances in pth
+    Args:
+        model: model object containing feature_importances_
+        X_data: pandas dataframe of X values
+        output_pth: path to store the figure
+    """
+    pass
+
+def roc_curve_image(estimator, 
+                    estimator_baseline,
+                    X,
+                    y,
+                    filename,
+                    path_plots="images/results"):
+    """ 
+    Plot ROC curve for given X and y using two estimators: 
+    he baseline one and the one that shall be compared to the baseline model.
+
+    Args:
+        estimator (_type_): _description_
+        estimator_baseline (_type_): _description_
+        X (_type_): _description_
+        y (_type_): _description_
+        filename (_type_): _description_
+        path_plots (str, optional): _description_. Defaults to "images/results".
+    """
+    if not os.path.exists(path_plots):
+        os.makedirs(path_plots)
+        
+    plt.figure(figsize=(15, 8))
+    lrc_plot = plot_roc_curve(estimator_baseline, X, y)
+    ax = plt.gca()
+    plot_roc_curve(estimator, X, y, ax=ax, alpha=0.8)
+    lrc_plot.plot(ax=ax, alpha=0.8)
+    plt.title("ROC Curve")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(path_plots, filename + ".png"))
+    plt.close()
+    
 
 if __name__ == "__main__":
     data = import_data(r"./data/bank_data.csv")
