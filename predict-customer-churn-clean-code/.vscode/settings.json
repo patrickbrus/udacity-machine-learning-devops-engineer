@@ -3,5 +3,20 @@
         "."
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always"
+        },
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "editor.formatOnType": false,
+    },
+    "black-formatter.args": [
+        "--line-length",
+        "79"
+    ],
+    "editor.rulers": [79]
 }

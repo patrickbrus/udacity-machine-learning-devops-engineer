@@ -12,12 +12,6 @@ from sklearn.linear_model import LogisticRegression
 from unittest.mock import patch, Mock
 from churn_library import ChurnPredictor
 
-logging.basicConfig(
-    filename="./logs/churn_library.log",
-    level = logging.INFO,
-    filemode="w",
-    format="%(name)s - %(levelname)s - %(message)s")
-
 @pytest.fixture
 def path():
     """
@@ -48,6 +42,12 @@ def sample_df():
     return pd.DataFrame({"col1": [1, 2, 3, 4, 5], 
                          "col2": [2, 4, 6, 8, 10],
                          "col3": ["A", "B", "C", "D", "E"]})
+
+@pytest.fixture
+def sample_data_train():
+    X, y = make_classification(n_samples=1000, n_classes=2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    return X_train, X_test, y_train, y_test
 
 def test_import_data_returns_dataframe(path):
     churn_predictor = ChurnPredictor(path)
@@ -93,7 +93,7 @@ def test_perform_eda(sample_df, path_test_images_eda):
     assert os.path.exists(os.path.join(path_test_images_eda, "hist_col1.png"))
     assert os.path.exists(os.path.join(path_test_images_eda, "hist_col2.png"))
     assert os.path.exists(os.path.join(path_test_images_eda, "bar_col3.png"))
-    assert os.path.exists(os.path.join(path_test_images_eda, "feature_heatmap.png"))
+    assert os.path.exists(os.path.join(path_test_images_eda, "correlation_heatmap.png"))
 
     shutil.rmtree(path_test_images_eda)
     
@@ -106,17 +106,18 @@ def test_get_categorical_cols():
     churn_predictor.df = df
     assert churn_predictor._get_categorical_cols() == ["col1", "col3"]
 
-def test_encoder_helper():
+def test_encode_features():
     df = pd.DataFrame({"Gender": ["M", "F", "M", "M", "F"], 
                        "Churn": [1, 0, 1, 1, 1],
                        "num_col1": [1, 2, 3, 4, 5]})
     
     churn_predictor = ChurnPredictor("")
     churn_predictor.df = df
-    churn_predictor._encoder_helper(["Gender"])
+    churn_predictor._encode_features(["Gender"])
     
-    assert sorted(churn_predictor.df.columns) == ['Churn', 'Gender_Churn', 'num_col1']
-    assert (churn_predictor.df["Gender_Churn"] == [1.0, 0.5, 1.0, 1.0, 0.5]).all()
+    assert sorted(churn_predictor.df.columns) == ['Churn', 'Gender_F', 'Gender_M', 'num_col1']
+    assert (churn_predictor.df["Gender_F"] == [0, 1, 0, 0, 1]).all()
+    assert (churn_predictor.df["Gender_M"] == [1, 0, 1, 1, 0]).all()
     
 def test_perform_feature_engineering():
     # Test perform_feature_engineering function
@@ -184,12 +185,12 @@ def test_classification_report_to_image(path_test_images_results):
     
     # Check if the image has been created in the expected directory
     assert os.path.exists(os.path.join(path_test_images_results,"test_report.png"))
+    
+    shutil.rmtree(path_test_images_results)
 
-def test_roc_curve_image_old(path_test_images_results):
+def test_roc_curve_image(sample_data_train, path_test_images_results):
     filename="test_roc_curve"
-    # Create sample data
-    X, y = make_classification(n_samples=1000, n_classes=2, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = sample_data_train
 
     # Train classifiers
     estimator_baseline = LogisticRegression(random_state=42)
@@ -207,25 +208,46 @@ def test_roc_curve_image_old(path_test_images_results):
     # Check if the image has been created in the expected directory
     assert os.path.exists(os.path.join(path_test_images_results, filename + ".png"))
     
-def test_train_models(path_test_images_results):
-    # Create sample data
-    X, y = make_classification(n_samples=1000, n_classes=2, random_state=42)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    shutil.rmtree(path_test_images_results)
+
+def test_train_logistic_regression(sample_data_train):
+    X_train, X_test, y_train, y_test = sample_data_train
     
-    churn_predictor = ChurnPredictor("")
+    churn_predictor = ChurnPredictor("", "test_models")
     churn_predictor.X_train = X_train
     churn_predictor.X_test = X_test
     churn_predictor.y_train = y_train
     churn_predictor.y_test = y_test
     
     
-    churn_predictor.train_models()
+    churn_predictor._train_logistic_regression()
     
-    # Check if the models are trained and saved properly
-    assert os.path.exists(churn_predictor.MODEL_PATH)
-    assert os.path.getsize(churn_predictor.MODEL_PATH) > 0
-    with open(churn_predictor.MODEL_PATH, "rb") as f:
+    # Check if the model is trained and saved properly
+    assert os.path.exists("test_models")
+    assert os.path.getsize("test_models") > 0
+    with open(os.path.join("test_models", "logistic_regression.pkl"), "rb") as f:
         clf_rf = joblib.load(f)
-        clf_baseline = joblib.load(f)
+        assert "LogisticRegression" in str(type(clf_rf))
+    
+    shutil.rmtree("test_models")
+    
+def test_train_random_forest(sample_data_train):
+    X_train, X_test, y_train, y_test = sample_data_train
+    
+    churn_predictor = ChurnPredictor("", "test_models")
+    churn_predictor.X_train = X_train
+    churn_predictor.X_test = X_test
+    churn_predictor.y_train = y_train
+    churn_predictor.y_test = y_test
+    
+    
+    churn_predictor._train_random_forest()
+    
+    # Check if the model is trained and saved properly
+    assert os.path.exists("test_models")
+    assert os.path.getsize("test_models") > 0
+    with open(os.path.join("test_models", "random_forest.pkl"), "rb") as f:
+        clf_rf = joblib.load(f)
         assert "RandomForestClassifier" in str(type(clf_rf))
-        assert "LogisticRegression" in str(type(clf_baseline))
+    
+    shutil.rmtree("test_models")
