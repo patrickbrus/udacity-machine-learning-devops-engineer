@@ -21,6 +21,9 @@ from sklearn.metrics import plot_roc_curve, classification_report
 
 os.environ["QT_QPA_PLATFORM"]="offscreen"
 
+# Adjust matplotlib backend for environments without display
+plt.switch_backend('agg')
+
 class ChurnPredictor:
     # define statics
     MODEL_PATH = r"./models/rfc_model.pkl"
@@ -53,36 +56,9 @@ class ChurnPredictor:
         Args:
             path_plots (str, optional): Path to folder where eda plots should be stored in. Defaults to "images/eda".
         """
-        # cleanup the directory before creating new plots
-        if os.path.exists(path_plots):
-            shutil.rmtree(path_plots)
-        
-        # create the directory to save the plots
-        os.makedirs(path_plots)
-
-        # loop through each column in the dataframe and create a histogram
-        for feature in self.df.columns:
-            
-            fig, ax = plt.subplots(figsize=(8, 6))  # adjust the figure size
-            
-            if self.df[feature].dtype != "object":
-                ax.hist(self.df[feature])
-                filename = f"hist_{feature}.png"
-            else:
-                self.df[feature].value_counts("normalize").plot(kind="bar", ax=ax)
-                filename = f"bar_{feature}.png"
-            
-            ax.set_title(feature)
-            ax.set_xlabel("Value")  # add a label to the x axis
-            ax.set_ylabel("Frequency")  # add a label to the y axis
-            plt.tight_layout()
-            fig.savefig(os.path.join(path_plots, filename), dpi=300)
-            plt.close(fig)  # close the figure to avoid memory leaks
-        
-        # create and plot heatmap
-        fig = plt.figure(figsize=(20,10)) 
-        sns.heatmap(self.df.corr(), annot=False, cmap="Dark2_r", linewidths = 2)
-        fig.savefig(os.path.join(path_plots, "feature_heatmap.png"), dpi=300)
+        self._ensure_directory(path_plots)
+        self._plot_histograms(path_plots)
+        self._plot_correlation_heatmap(path_plots)
         
     def perform_feature_engineering(self):
         """
@@ -143,6 +119,22 @@ class ChurnPredictor:
         Helper function to add the target column with name Churn which will be used for training later.
         """
         self.df[self.TARGET_COLUMN] = self.df["Attrition_Flag"].apply(lambda val: 0 if val == "Existing Customer" else 1)
+    
+    def _ensure_directory(self, path: str):
+        if not os.path.exists(path):
+            os.makedirs(path)
+    
+    def _plot_histograms(self, path_plots: str):
+        numerical_cols = self.df.select_dtypes(include=np.number).columns.tolist()
+        for col in numerical_cols:
+            self._save_plot(self.df[col], kind="hist", title=col, xlabel="Value", ylabel="Frequency", path=os.path.join(path_plots, f"hist_{col}.png"))
+
+    def _plot_correlation_heatmap(self, path_plots: str):
+        plt.figure(figsize=(20, 10))
+        sns.heatmap(self.df.corr(), annot=True, cmap="viridis", linewidths=2)
+        plt.tight_layout()
+        plt.savefig(os.path.join(path_plots, "correlation_heatmap.png"))
+        plt.close()
     
     def _get_categorical_cols(self):
         """Get the list of categorical columns in the dataframe.
